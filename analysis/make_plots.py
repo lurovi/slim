@@ -287,10 +287,14 @@ def my_callback_scatter(plt, d, zoom):
 
     all_scatter_points = list(zip(d['RMSE'], d['Log10NNodes']))
     if zoom:
-        all_scatter_points = [(rmse, log10nnodes) for rmse, log10nnodes in all_scatter_points if 2.5 < log10nnodes < 4.5]
+        all_scatter_points = [(rmse, log10nnodes) for rmse, log10nnodes in all_scatter_points
+                              if 3.35 < log10nnodes < 4.20 and 0 < rmse < 0.11
+                              #if 2.5 < log10nnodes < 4.5 and 0 < rmse < 1
+                              ]
 
     for rmse, log10nnodes, color, marker in zip(d['RMSE'], d['Log10NNodes'], d['Color'], d['Marker']):
-        ax.scatter(rmse, log10nnodes, c=color, marker=marker, s=100, edgecolor='black', linewidth=0.8)
+        if (rmse, log10nnodes) in all_scatter_points:
+            ax.scatter(rmse, log10nnodes, c=color, marker=marker, s=100, edgecolor='black', linewidth=0.8)
 
     pareto_fronts = compute_pareto_fronts(all_scatter_points)
     for front in pareto_fronts:
@@ -299,7 +303,8 @@ def my_callback_scatter(plt, d, zoom):
                 alpha=0.5)
 
     if zoom:
-        ax.set_ylim(2.5, 4.5)
+        ax.set_ylim(3.4, 4.2)
+        #ax.set_ylim(2.5, 4.5)
     else:
         ax.set_yscale('log')
     #ax.set_yticks([2, 4, 6, 8])
@@ -605,11 +610,11 @@ def my_callback_lineplot_grid(plt, d, metric, num_gen,
     d = pd.DataFrame(d)
     n, m = len(dataset_names), 2 + len(methods)
     figsize = (8, 8)
-    if aggregate: # TODO: NOT HANDLED YET
-        n = len(set(list(d['LineStyle'])))
+    if aggregate:
+        n, m = 1, 2 + len(methods)
         dataset_names = [''] * 1000
         dataset_acronyms = {'': ''}
-        figsize = (8, 4)
+        figsize = (10, 3)
     fig, ax = plt.subplots(n, m, figsize=figsize, layout='constrained', squeeze=False)
     x = list(range(num_gen))
 
@@ -624,7 +629,10 @@ def my_callback_lineplot_grid(plt, d, metric, num_gen,
 
             if not test:
                 alg_alias = methods_alias[alg]
-                curr_d = d[(d["Dataset"] == data_acronym) & (d["Algorithm"] == alg_alias)]
+                if not aggregate:
+                    curr_d = d[(d["Dataset"] == data_acronym) & (d["Algorithm"] == alg_alias)]
+                else:
+                    curr_d = d[(d["Algorithm"] == alg_alias)]
                 for topology in [r'\notoroid', r'\toroid{2}{2}', r'\toroid{2}{3}']:
                     color = palette[topology]
                     for e_pipe_alias in [r'\CxMut', r'\Cx', r'\Mut']:
@@ -658,26 +666,31 @@ def my_callback_lineplot_grid(plt, d, metric, num_gen,
                 ax[i, j].set_ylim(-2.0, 20.0)
                 ax[i, j].set_yticks([0.0, 10.0, 20.0])
             elif metric == r'\rmse':
-                if dataset == 'airfoil':
-                    ax[i, j].set_ylim(-6, 56)
-                    ax[i, j].set_yticks([0, 25, 50])
-                elif dataset == 'concrete':
-                    ax[i, j].set_ylim(-4, 34)
-                    ax[i, j].set_yticks([0, 15, 30])
-                elif dataset == 'slump':
-                    ax[i, j].set_ylim(-3, 23)
-                    ax[i, j].set_yticks([0, 10, 20])
-                elif dataset == 'yacht':
-                    ax[i, j].set_ylim(-3, 23)
-                    ax[i, j].set_yticks([0, 10, 20])
-                elif dataset == 'parkinson':
-                    ax[i, j].set_ylim(8.4, 13.6)
-                    ax[i, j].set_yticks([9, 11, 13])
-                elif dataset == 'qsaraquatic':
-                    ax[i, j].set_ylim(1.0, 2.0)
-                    ax[i, j].set_yticks([1.1, 1.5, 1.9])
+                if not aggregate:
+                    if dataset == 'airfoil':
+                        ax[i, j].set_ylim(-6, 56)
+                        ax[i, j].set_yticks([0, 25, 50])
+                    elif dataset == 'concrete':
+                        ax[i, j].set_ylim(-4, 34)
+                        ax[i, j].set_yticks([0, 15, 30])
+                    elif dataset == 'slump':
+                        ax[i, j].set_ylim(-3, 23)
+                        ax[i, j].set_yticks([0, 10, 20])
+                    elif dataset == 'yacht':
+                        ax[i, j].set_ylim(-3, 23)
+                        ax[i, j].set_yticks([0, 10, 20])
+                    elif dataset == 'parkinson':
+                        ax[i, j].set_ylim(8.4, 13.6)
+                        ax[i, j].set_yticks([9, 11, 13])
+                    elif dataset == 'qsaraquatic':
+                        ax[i, j].set_ylim(1.0, 2.0)
+                        ax[i, j].set_yticks([1.1, 1.5, 1.9])
+                    else:
+                        raise ValueError(f'Unknown dataset {dataset}.')
                 else:
-                    raise ValueError(f'Unknown dataset {dataset}.')
+                    pass
+                    #ax[i, j].set_ylim(-4.0, 2.0)
+                    #ax[i, j].set_yticks([1.1, 1.5, 1.9])
             else:
                 raise ValueError(f'Unknown metric {metric}.')
 
@@ -704,7 +717,7 @@ def my_callback_lineplot_grid(plt, d, metric, num_gen,
                 ax[i, j].grid(True, axis='both', which='major', color='gray', linestyle='--', linewidth=0.5)
                 ax[i, j].tick_params(labelleft=False)
                 ax[i, j].set_yticklabels([])
-                if j == m - 1:
+                if j == m - 1 and not aggregate:
                     # axttt = ax[i, j].twinx()
                     ax[i, j].set_ylabel(data_acronym, rotation=270, labelpad=14)
                     ax[i, j].yaxis.set_label_position("right")
@@ -762,9 +775,9 @@ def main():
 
     PLOT_ARGS = {'rcParams': {'text.latex.preamble': preamble, 'pdf.fonttype': 42, 'ps.fonttype': 42}}
 
-    palette = {r'\notoroid': '#990000',
-               r'\toroid{2}{2}': '#31AB0C',
-               r'\toroid{2}{3}': '#283ADF',
+    palette = {r'\notoroid': '#065535',
+               r'\toroid{2}{2}': '#FFCC00',
+               r'\toroid{2}{3}': '#6224FF',
                }
 
     expl_pipe_linestyle = {r'\CxMut': '-', r'\Cx': '--', r'\Mut': ':'}
@@ -788,6 +801,12 @@ def main():
         r'\Mut-\slimplussigone': '<', r'\Mut-\slimplussigtwo': '>', r'\Mut-\slimplusabs': 'P',
     }
 
+    methods_markers_less_less = {
+        r'\Mut-GSGP': 'D',
+        r'\CxMut-\slimplussigone': 'v', r'\CxMut-\slimplussigtwo': '^', r'\CxMut-\slimplusabs': 'X',
+        r'\Mut-\slimplussigone': '<', r'\Mut-\slimplussigtwo': '>', r'\Mut-\slimplusabs': 'P',
+    }
+
     expl_pipe_alias = {'cx': r'\Cx', 'mut': r'\Mut', 'cxmut': r'\CxMut'}
     methods_alias = {'GP': 'GP', 'GSGP': 'GSGP',
                      'SLIM+': r'\slimplus', 'SLIM*': r'\slimmul',
@@ -803,14 +822,14 @@ def main():
 
     #create_legend(palette, PLOT_ARGS=PLOT_ARGS)
     #create_horizontal_linestyle_legend(expl_pipe_linestyle, PLOT_ARGS=PLOT_ARGS)
-    #create_marker_legend(methods_markers, PLOT_ARGS=PLOT_ARGS)
+    create_marker_legend(methods_markers_less_less, PLOT_ARGS=PLOT_ARGS)
 
     #create_boxplot(path=path + f'all_values.json', palette=palette, dataset_name='parkinson', algorithms=slim_versions, type_of_result='training_time', all_together=True, all_datasets=dataset_names, palette=palette, PLOT_ARGS=PLOT_ARGS)
 
-    for zoom in [False, True]:
-        methods_pareto_front(path + f'all_values.json', expl_pipe_alias=expl_pipe_alias, methods_alias=methods_alias, palette=palette, zoom=zoom, grid=False, to_normalize=True, algorithms=slim_versions, dataset_names=dataset_names, dataset_acronyms=dataset_acronyms, PLOT_ARGS=PLOT_ARGS)
+    #for zoom in [True, False]:
+    #    methods_pareto_front(path + f'all_values.json', expl_pipe_alias=expl_pipe_alias, methods_alias=methods_alias, palette=palette, zoom=zoom, grid=False, to_normalize=True, algorithms=slim_versions, dataset_names=dataset_names, dataset_acronyms=dataset_acronyms, PLOT_ARGS=PLOT_ARGS)
     #for type_of_result in ['best_overall_test_fitness', 'log_10_num_nodes', 'moran']:
-    #    lineplot_grid(path=path + f'all_values_for_each_gen.json', test=False, type_of_result=type_of_result, algorithms=slim_versions, dataset_names=dataset_names, dataset_acronyms=dataset_acronyms, expl_pipe_alias=expl_pipe_alias, methods_alias=methods_alias, num_gen=1000, num_seeds=30, aggregate=False, palette=palette, linestyles=expl_pipe_linestyle, linewidths=expl_pipe_linewidth, PLOT_ARGS=PLOT_ARGS)
+    #    lineplot_grid(path=path + f'all_values_for_each_gen.json', test=False, type_of_result=type_of_result, algorithms=slim_versions, dataset_names=dataset_names, dataset_acronyms=dataset_acronyms, expl_pipe_alias=expl_pipe_alias, methods_alias=methods_alias, num_gen=1000, num_seeds=30, aggregate=True, palette=palette, linestyles=expl_pipe_linestyle, linewidths=expl_pipe_linewidth, PLOT_ARGS=PLOT_ARGS)
 
 
 if __name__ == '__main__':
